@@ -1,0 +1,22 @@
+[project]
+name = "reconciliation-ledger"
+version = "0.1.0"
+description = "Daily reconciliation screen: load, match, compare, and resolve trades across two disagreeing systems."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "jinja2",
+    "sqlalchemy",
+    "python-multipart",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "httpx",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
