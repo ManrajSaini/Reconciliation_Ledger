@@ -1,8 +1,10 @@
 """Layer 7: UI (server-rendered via FastAPI + Jinja2).
 
 Phase 4: run list (upload + trigger), run detail (bucketed results), and
-row detail (field-by-field diff) -- all read/trigger-only. Manual
-resolution (Phase 5) is not implemented yet.
+row detail (field-by-field diff) -- read/trigger-only.
+Phase 5: manual resolution -- for an unmatched ledger row, show ranked
+heuristic candidates plus every other unmatched statement row, and let a
+human confirm a pairing or declare "no pair."
 
 The DB engine is provided via FastAPI dependency injection (get_db_engine)
 rather than created at module import time -- importing this module (e.g.
@@ -14,7 +16,7 @@ from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Request, UploadFile
+from fastapi import Depends, FastAPI, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine
@@ -22,7 +24,7 @@ from sqlalchemy import Engine
 from reconciliation import repository as repo
 from reconciliation.comparison import compare
 from reconciliation.db import get_engine
-from reconciliation.orchestration import build_run_detail_view, run_reconciliation
+from reconciliation.orchestration import STATEMENT_SOURCE, build_run_detail_view, run_reconciliation
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
@@ -151,3 +153,67 @@ def row_detail(
             "right_history": right_history,
         },
     )
+
+
+@app.get("/runs/{run_id}/resolve/{left_source}/{left_external_id}")
+def resolve_row(
+    request: Request,
+    run_id: int,
+    left_source: str,
+    left_external_id: str,
+    engine: Engine = Depends(get_db_engine),
+):
+    with engine.connect() as conn:
+        view = build_run_detail_view(conn, run_id)
+        if view is None:
+            return templates.TemplateResponse(
+                request=request, name="not_found.html", context={}, status_code=404
+            )
+
+        unmatched_row = next(
+            (
+                u
+                for u in view.unmatched_left
+                if u.txn.source == left_source and u.txn.external_id == left_external_id
+            ),
+            None,
+        )
+        if unmatched_row is None:
+            return templates.TemplateResponse(
+                request=request, name="not_found.html", context={}, status_code=404
+            )
+
+        candidate_ids = {c.right.external_id for c in unmatched_row.candidates}
+        other_unmatched_right = tuple(
+            t for t in view.unmatched_right if t.external_id not in candidate_ids
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="resolve.html",
+        context={
+            "run_id": run_id,
+            "row": unmatched_row,
+            "other_unmatched_right": other_unmatched_right,
+        },
+    )
+
+
+@app.post("/runs/{run_id}/resolve/{left_source}/{left_external_id}")
+def submit_resolution(
+    run_id: int,
+    left_source: str,
+    left_external_id: str,
+    action: str = Form(...),
+    right_external_id: str | None = Form(None),
+    engine: Engine = Depends(get_db_engine),
+):
+    with engine.connect() as conn:
+        if action == "match":
+            repo.record_manual_match(
+                conn, left_source, left_external_id, STATEMENT_SOURCE, right_external_id
+            )
+        elif action == "no_pair":
+            repo.record_manual_no_pair(conn, left_source, left_external_id)
+
+    return RedirectResponse(url=f"/runs/{run_id}", status_code=303)

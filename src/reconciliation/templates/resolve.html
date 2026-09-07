@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Resolve {{ row.txn.external_id }} — Reconciliation Ledger{% endblock %}
+{% block content %}
+  <nav class="breadcrumb"><a href="/runs/{{ run_id }}">&larr; Run #{{ run_id }}</a></nav>
+  <h1>Resolve {{ row.txn.external_id }} <span class="muted">(ledger, {{ row.txn.instrument }}, {{ row.txn.side.value }})</span></h1>
+  <p class="muted">No counterpart was found automatically for this row. Pick a matching statement row below, or confirm it genuinely has no pair.</p>
+
+  {% if row.candidates %}
+  <h2>Ranked candidates</h2>
+  <table>
+    <thead><tr><th></th><th>Statement id</th><th>Instrument</th><th>Side</th><th>Quantity</th><th>Price</th><th>Score</th></tr></thead>
+    <tbody>
+      {% for candidate in row.candidates %}
+      <tr>
+        <td>
+          <form method="post" action="/runs/{{ run_id }}/resolve/{{ row.txn.source }}/{{ row.txn.external_id }}">
+            <input type="hidden" name="action" value="match">
+            <input type="hidden" name="right_external_id" value="{{ candidate.right.external_id }}">
+            <button type="submit">Confirm match</button>
+          </form>
+        </td>
+        <td>{{ candidate.right.external_id }}</td>
+        <td>{{ candidate.right.instrument }}</td>
+        <td>{{ candidate.right.side.value }}</td>
+        <td>{{ candidate.right.quantity|display }}</td>
+        <td>{{ candidate.right.price|display }}</td>
+        <td>{{ "%.2f"|format(candidate.score) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="muted">No automatic candidates were found for this row.</p>
+  {% endif %}
+
+  {% if other_unmatched_right %}
+  <h2>Other unmatched statement rows</h2>
+  <p class="muted">Not ranked as likely candidates, but still available to pair by hand.</p>
+  <table>
+    <thead><tr><th></th><th>Statement id</th><th>Instrument</th><th>Side</th><th>Quantity</th><th>Price</th></tr></thead>
+    <tbody>
+      {% for txn in other_unmatched_right %}
+      <tr>
+        <td>
+          <form method="post" action="/runs/{{ run_id }}/resolve/{{ row.txn.source }}/{{ row.txn.external_id }}">
+            <input type="hidden" name="action" value="match">
+            <input type="hidden" name="right_external_id" value="{{ txn.external_id }}">
+            <button type="submit">Confirm match</button>
+          </form>
+        </td>
+        <td>{{ txn.external_id }}</td>
+        <td>{{ txn.instrument }}</td>
+        <td>{{ txn.side.value }}</td>
+        <td>{{ txn.quantity|display }}</td>
+        <td>{{ txn.price|display }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <h2>Or</h2>
+  <form method="post" action="/runs/{{ run_id }}/resolve/{{ row.txn.source }}/{{ row.txn.external_id }}">
+    <input type="hidden" name="action" value="no_pair">
+    <button type="submit">Confirm this row genuinely has no pair</button>
+  </form>
+{% endblock %}

@@ -41,7 +41,7 @@
   <h2>Unmatched — ledger side <span class="badge badge-unmatched">{{ view.unmatched_left|length }}</span></h2>
   {% if view.unmatched_left %}
     <table>
-      <thead><tr><th>Ledger id</th><th>Instrument</th><th>Side</th><th>Candidates found</th></tr></thead>
+      <thead><tr><th>Ledger id</th><th>Instrument</th><th>Side</th><th>Candidates found</th><th></th></tr></thead>
       <tbody>
         {% for row in view.unmatched_left %}
         <tr>
@@ -49,11 +49,11 @@
           <td>{{ row.txn.instrument }}</td>
           <td>{{ row.txn.side.value }}</td>
           <td>{{ row.candidates|length }}</td>
+          <td><a href="/runs/{{ view.run.id }}/resolve/{{ row.txn.source }}/{{ row.txn.external_id }}">Resolve</a></td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    <p class="muted">Manual resolution isn't available yet — coming next.</p>
   {% else %}<p class="muted">None.</p>{% endif %}
 
   <h2>Unmatched — statement side <span class="badge badge-unmatched">{{ view.unmatched_right|length }}</span></h2>
