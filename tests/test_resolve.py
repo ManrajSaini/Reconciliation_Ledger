@@ -87,6 +87,24 @@ class TestConfirmMatch:
         assert "C-3001" in response.text
 
 
+class TestConfirmMatchRejectsInvalidTarget:
+    def test_nonexistent_right_external_id_is_rejected_not_silently_persisted(
+        self, client, day1_ledger_bytes, day1_statement_bytes
+    ):
+        _start_run(client, day1_ledger_bytes, day1_statement_bytes)
+
+        response = client.post(
+            "/runs/1/resolve/ledger/T-2006",
+            data={"action": "match", "right_external_id": "C-9999-DOES-NOT-EXIST"},
+        )
+        assert response.status_code == 400
+
+        # T-2006 must still show up as genuinely unmatched -- not silently
+        # paired with (and hidden behind) a decision pointing at nothing
+        run_response = client.get("/runs/1")
+        assert '<span class="badge badge-unmatched">1</span>' in run_response.text
+
+
 class TestConfirmNoPair:
     def test_confirming_no_pair_creates_a_manual_decision_and_clears_unmatched(
         self, client, day1_ledger_bytes, day1_statement_bytes

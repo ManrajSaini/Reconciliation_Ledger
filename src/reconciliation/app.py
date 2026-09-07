@@ -201,6 +201,7 @@ def resolve_row(
 
 @app.post("/runs/{run_id}/resolve/{left_source}/{left_external_id}")
 def submit_resolution(
+    request: Request,
     run_id: int,
     left_source: str,
     left_external_id: str,
@@ -210,6 +211,18 @@ def submit_resolution(
 ):
     with engine.connect() as conn:
         if action == "match":
+            # a stale/typo'd right_external_id must not silently create a
+            # manual decision pointing at nothing -- that would make the
+            # left row vanish from every bucket (see mistakes.md)
+            if right_external_id is None or repo.get_current_version(
+                conn, STATEMENT_SOURCE, right_external_id
+            ) is None:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="not_found.html",
+                    context={},
+                    status_code=400,
+                )
             repo.record_manual_match(
                 conn, left_source, left_external_id, STATEMENT_SOURCE, right_external_id
             )

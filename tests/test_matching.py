@@ -2,12 +2,31 @@
 candidate ranking for everything else, and symmetric cancelled-row
 exclusion — proven against the Phase 1 synthetic dataset, no DB, no UI.
 """
+from datetime import datetime, timezone
+from decimal import Decimal
+
 from reconciliation.matching import match
+from reconciliation.models import CanonicalTransaction, Side, TxnStatus
 from tests.conftest import txn_by_id
 
 
 def _matched_ids(result):
     return {pair.left.external_id for pair in result.matched}
+
+
+def _make_txn(source, external_id, status=TxnStatus.SETTLED, **overrides):
+    defaults = dict(
+        traded_at=datetime(2025, 7, 1, 9, 0, tzinfo=timezone.utc),
+        instrument="BTC-USD",
+        side=Side.BUY,
+        quantity=Decimal("1"),
+        price=Decimal("100"),
+        gross_amount=Decimal("100"),
+    )
+    defaults.update(overrides)
+    return CanonicalTransaction(
+        external_id=external_id, source=source, status=status, **defaults
+    )
 
 
 class TestDeterministicMatching:
@@ -82,6 +101,37 @@ class TestUnmatchedBothDirections:
         unmatched = next(u for u in result.unmatched_left if u.left.external_id == "T-2006")
         assert len(unmatched.candidates) == 1
         assert unmatched.candidates[0].right.external_id == "C-3001"
+
+
+class TestAsymmetricCancellation:
+    """Same external_id, cancelled on one side but still active on the
+    other -- the active side must surface as unmatched, not silently
+    disappear alongside its cancelled counterpart (see matching.py docstring
+    and mistakes.md)."""
+
+    def test_cancelled_left_active_right_surfaces_active_side_as_unmatched(self):
+        cancelled_left = _make_txn("ledger", "T-9001", status=TxnStatus.CANCELLED)
+        active_right = _make_txn("statement", "T-9001", status=TxnStatus.SETTLED)
+
+        result = match([cancelled_left], [active_right])
+
+        assert result.matched == ()
+        assert {t.external_id for t in result.excluded_cancelled_left} == {"T-9001"}
+        assert result.excluded_cancelled_right == ()
+        assert {u.right.external_id for u in result.unmatched_right} == {"T-9001"}
+        assert result.unmatched_left == ()
+
+    def test_active_left_cancelled_right_surfaces_active_side_as_unmatched(self):
+        active_left = _make_txn("ledger", "T-9002", status=TxnStatus.SETTLED)
+        cancelled_right = _make_txn("statement", "T-9002", status=TxnStatus.CANCELLED)
+
+        result = match([active_left], [cancelled_right])
+
+        assert result.matched == ()
+        assert {t.external_id for t in result.excluded_cancelled_right} == {"T-9002"}
+        assert result.excluded_cancelled_left == ()
+        assert {u.left.external_id for u in result.unmatched_left} == {"T-9002"}
+        assert result.unmatched_right == ()
 
 
 class TestHeuristicNeverAutoCommits:

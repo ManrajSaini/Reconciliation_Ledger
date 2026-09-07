@@ -2,10 +2,30 @@
 matched transactions, proven against the Phase 1 synthetic dataset — no DB,
 no UI.
 """
+from datetime import datetime, timezone
 from decimal import Decimal
 
-from reconciliation.comparison import compare
+from reconciliation.comparison import (
+    NUMERIC_ABSOLUTE_FLOOR,
+    NUMERIC_RELATIVE_TOLERANCE,
+    compare,
+)
+from reconciliation.models import CanonicalTransaction, Side, TxnStatus
 from tests.conftest import txn_by_id
+
+
+def _make_txn(price, quantity=Decimal("1"), gross_amount=Decimal("1")):
+    return CanonicalTransaction(
+        external_id="X",
+        source="test",
+        traded_at=datetime(2025, 7, 1, 9, 0, tzinfo=timezone.utc),
+        instrument="BTC-USD",
+        side=Side.BUY,
+        quantity=quantity,
+        price=price,
+        gross_amount=gross_amount,
+        status=TxnStatus.SETTLED,
+    )
 
 
 class TestExactMatch:
@@ -74,6 +94,62 @@ class TestTimeDrift:
         assert time_diff.within_tolerance is False
         assert time_diff.absolute_delta == Decimal("2400")  # 40 minutes in seconds
         assert result.agrees is False
+
+
+class TestNumericToleranceBoundaries:
+    def test_exactly_at_relative_tolerance_passes(self):
+        # relative delta = |999 - 1000| / max(999, 1000) = 1/1000 = exactly
+        # 0.001 (10 bps) -- the documented tolerance is inclusive ("<="), so
+        # this must agree
+        left = _make_txn(price=Decimal("999"))
+        right = _make_txn(price=Decimal("1000"))
+        result = compare(left, right)
+        price_diff = next(d for d in result.field_diffs if d.field == "price")
+        assert price_diff.relative_delta == NUMERIC_RELATIVE_TOLERANCE
+        assert price_diff.within_tolerance is True
+
+    def test_just_above_relative_tolerance_fails(self):
+        left = _make_txn(price=Decimal("1000"))
+        right = _make_txn(price=Decimal("1001.01"))
+        result = compare(left, right)
+        price_diff = next(d for d in result.field_diffs if d.field == "price")
+        assert price_diff.relative_delta > NUMERIC_RELATIVE_TOLERANCE
+        assert price_diff.within_tolerance is False
+
+    def test_exactly_at_absolute_floor_passes_even_if_relative_tolerance_would_fail(self):
+        # a $0.01 delta on a $0.01 price is a 100% relative difference, but
+        # the absolute floor exists precisely to rescue near-zero trades
+        # like this from being flagged on trivial noise
+        left = _make_txn(price=Decimal("0.01"))
+        right = _make_txn(price=Decimal("0.02"))
+        result = compare(left, right)
+        price_diff = next(d for d in result.field_diffs if d.field == "price")
+        assert price_diff.absolute_delta == NUMERIC_ABSOLUTE_FLOOR
+        assert price_diff.within_tolerance is True
+
+    def test_just_above_absolute_floor_and_above_relative_tolerance_fails(self):
+        left = _make_txn(price=Decimal("0.01"))
+        right = _make_txn(price=Decimal("0.03"))
+        result = compare(left, right)
+        price_diff = next(d for d in result.field_diffs if d.field == "price")
+        assert price_diff.absolute_delta > NUMERIC_ABSOLUTE_FLOOR
+        assert price_diff.within_tolerance is False
+
+    def test_identical_zero_values_agree(self):
+        left = _make_txn(price=Decimal("0"))
+        right = _make_txn(price=Decimal("0"))
+        result = compare(left, right)
+        price_diff = next(d for d in result.field_diffs if d.field == "price")
+        assert price_diff.within_tolerance is True
+
+    def test_negative_prices_still_use_absolute_magnitude(self):
+        # short sales / negative pricing shouldn't break the relative-delta
+        # math, which divides by the larger magnitude
+        left = _make_txn(price=Decimal("-100"))
+        right = _make_txn(price=Decimal("-100.05"))
+        result = compare(left, right)
+        price_diff = next(d for d in result.field_diffs if d.field == "price")
+        assert price_diff.within_tolerance is True
 
 
 class TestIdentityFields:

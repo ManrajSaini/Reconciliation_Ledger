@@ -7,6 +7,14 @@ Given two lists of CanonicalTransaction (left/right, e.g. ledger/statement):
 3. Heuristic pass: everything left over is scored pairwise and returned as
    ranked candidates. Nothing is auto-committed here — a human confirms
    anything that isn't an exact-id match (see solution.md #2.2).
+
+Note on asymmetric cancellation: if the SAME external_id is cancelled on
+one side but still active on the other (one system cancelled the trade,
+the other hasn't caught up), the active side's row is deliberately NOT
+matched against its cancelled counterpart -- it falls through to
+unmatched, surfacing exactly the kind of cross-system disagreement this
+tool exists to catch, rather than silently disappearing alongside the
+cancelled row it happens to share an id with.
 """
 from __future__ import annotations
 
