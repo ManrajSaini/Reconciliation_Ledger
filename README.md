@@ -37,66 +37,21 @@ match, and to resolve it.**
 
 ---
 
-## How to run it
+## Architecture
 
-```bash
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+![Reconciliation flow — load, match, compare](images/arch.png)
 
-uvicorn reconciliation.app:app --reload --app-dir src
-```
+## App — live examples
 
-Then open <http://127.0.0.1:8000/>. Sample multi-scenario CSV files (both
-sources, plus a correction file and a duplicate-resend file) are in
-`tests/fixtures/` — upload `day1_ledger.csv` and `day1_statement.csv` on the
-run list page to see a populated run immediately.
+**Run detail — five buckets, at a glance:**
 
-**Golden path to try by hand:**
-1. Upload both `day1_*.csv` files and start a run.
-2. Open the run — see 4 agreeing pairs, 2 differing pairs, 1 unmatched row
-   on each side, 2 excluded-as-cancelled rows.
-3. Click a differing pair (e.g. `T-2003`) to see the field-by-field diff
-   with deltas.
-4. Click "Resolve" on the unmatched ledger row (`T-2006`) to see its ranked
-   candidate (`C-3001`) and confirm the match, or declare it has no pair.
-5. Start a second run with no new files — the resolution you just made
-   still holds.
-6. Upload `day2_statement_correction.csv` and start another run — a
-   corrected row's diff updates, but any manual pairing on it is preserved.
+![Run detail page showing matched & agree, matched & differs, unmatched, and excluded-cancelled buckets](images/image1.png)
 
-## How to run the tests
+**Row detail — field-by-field diff with deltas and version history:**
 
-```bash
-pytest
-```
-
-70 tests cover the logic that matters: source adapters (column mapping,
-date parsing, vocabulary normalization), the matching engine (deterministic
-+ heuristic, including boundary and asymmetric-cancellation cases), the
-tolerance comparison engine (including exact tolerance-boundary values), the
-persistence layer (versioning, duplicate detection, manual decisions), full
-orchestration, and the UI routes end-to-end via `TestClient` against an
-isolated in-memory database.
+![Row detail page showing a price/gross_amount mismatch outside tolerance, plus version history for both sides](images/image.png)
 
 ---
-
-## What was decided, and why
-
-### Stack
-- **Backend — FastAPI.** Chosen over Flask/Django for a modern, simple
-  framework; used here purely for server-rendered Jinja2 pages, not its
-  async/API-first features.
-- **Database — SQLite via SQLAlchemy Core** (not the full ORM). Explicit,
-  readable queries over relationship/lazy-loading magic, which matters for
-  an append-only/versioned data model where every write needs to be
-  obviously correct.
-- **UI — server-rendered Jinja2 templates**, plain HTML forms and links.
-  No JS framework or build step anywhere in the app — every interaction
-  (including manual match resolution) turned out to be doable with a form
-  POST and a redirect, so the JS/React escalation path outlined at the
-  start was never actually needed.
-- **Tests — pytest.**
 
 ### The reconciliation design
 
@@ -165,6 +120,71 @@ isolated in-memory database.
 **Guiding principle throughout:** deterministic before heuristic, heuristic
 before automatic; never destroy state, only add to it; show magnitude, not
 just a flag; when in doubt, leave something unresolved rather than guess.
+
+---
+
+## How to run it
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+
+uvicorn reconciliation.app:app --reload --app-dir src
+```
+
+Then open <http://127.0.0.1:8000/>. Sample multi-scenario CSV files (both
+sources, plus a correction file and a duplicate-resend file) are in
+`tests/fixtures/` — upload `day1_ledger.csv` and `day1_statement.csv` on the
+run list page to see a populated run immediately.
+
+**Golden path to try by hand:**
+1. Upload both `day1_*.csv` files and start a run.
+2. Open the run — see 4 agreeing pairs, 2 differing pairs, 1 unmatched row
+   on each side, 2 excluded-as-cancelled rows.
+3. Click a differing pair (e.g. `T-2003`) to see the field-by-field diff
+   with deltas.
+4. Click "Resolve" on the unmatched ledger row (`T-2006`) to see its ranked
+   candidate (`C-3001`) and confirm the match, or declare it has no pair.
+5. Start a second run with no new files — the resolution you just made
+   still holds.
+6. Upload `day2_statement_correction.csv` and start another run — a
+   corrected row's diff updates, but any manual pairing on it is preserved.
+
+## How to run the tests
+
+```bash
+pytest
+```
+
+70 tests cover the logic that matters: source adapters (column mapping,
+date parsing, vocabulary normalization), the matching engine (deterministic
++ heuristic, including boundary and asymmetric-cancellation cases), the
+tolerance comparison engine (including exact tolerance-boundary values), the
+persistence layer (versioning, duplicate detection, manual decisions), full
+orchestration, and the UI routes end-to-end via `TestClient` against an
+isolated in-memory database.
+
+---
+
+## What was decided, and why
+
+### Stack
+- **Backend — FastAPI.** Chosen over Flask/Django for a modern, simple
+  framework; used here purely for server-rendered Jinja2 pages, not its
+  async/API-first features.
+- **Database — SQLite via SQLAlchemy Core** (not the full ORM). Explicit,
+  readable queries over relationship/lazy-loading magic, which matters for
+  an append-only/versioned data model where every write needs to be
+  obviously correct.
+- **UI — server-rendered Jinja2 templates**, plain HTML forms and links.
+  No JS framework or build step anywhere in the app — every interaction
+  (including manual match resolution) turned out to be doable with a form
+  POST and a redirect, so the JS/React escalation path outlined at the
+  start was never actually needed.
+- **Tests — pytest.**
+
+---
 
 ### Other decisions made along the way
 
