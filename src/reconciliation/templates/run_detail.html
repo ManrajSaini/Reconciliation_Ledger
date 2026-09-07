@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Run #{{ view.run.id }} — Reconciliation Ledger{% endblock %}
+{% block content %}
+  <nav class="breadcrumb"><a href="/">&larr; All runs</a></nav>
+  <h1>Run #{{ view.run.id }} <span class="muted">({{ view.run.started_at }})</span></h1>
+
+  <h2>Matched &amp; agree <span class="badge badge-agree">{{ view.agreeing_pairs|length }}</span></h2>
+  {% if view.agreeing_pairs %}
+    <table>
+      <thead><tr><th>Ledger id</th><th>Statement id</th><th>Instrument</th><th>Side</th></tr></thead>
+      <tbody>
+        {% for pair in view.agreeing_pairs %}
+        <tr>
+          <td><a href="/runs/{{ view.run.id }}/pair/{{ pair.left.source }}/{{ pair.left.external_id }}">{{ pair.left.external_id }}</a></td>
+          <td>{{ pair.right.external_id }}</td>
+          <td>{{ pair.left.instrument }}</td>
+          <td>{{ pair.left.side.value }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}<p class="muted">None.</p>{% endif %}
+
+  <h2>Matched &amp; differs <span class="badge badge-differs">{{ view.differing_pairs|length }}</span></h2>
+  {% if view.differing_pairs %}
+    <table>
+      <thead><tr><th>Ledger id</th><th>Statement id</th><th>Instrument</th><th>Side</th></tr></thead>
+      <tbody>
+        {% for pair in view.differing_pairs %}
+        <tr>
+          <td><a href="/runs/{{ view.run.id }}/pair/{{ pair.left.source }}/{{ pair.left.external_id }}">{{ pair.left.external_id }}</a></td>
+          <td>{{ pair.right.external_id }}</td>
+          <td>{{ pair.left.instrument }}</td>
+          <td>{{ pair.left.side.value }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}<p class="muted">None.</p>{% endif %}
+
+  <h2>Unmatched — ledger side <span class="badge badge-unmatched">{{ view.unmatched_left|length }}</span></h2>
+  {% if view.unmatched_left %}
+    <table>
+      <thead><tr><th>Ledger id</th><th>Instrument</th><th>Side</th><th>Candidates found</th></tr></thead>
+      <tbody>
+        {% for row in view.unmatched_left %}
+        <tr>
+          <td>{{ row.txn.external_id }}</td>
+          <td>{{ row.txn.instrument }}</td>
+          <td>{{ row.txn.side.value }}</td>
+          <td>{{ row.candidates|length }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted">Manual resolution isn't available yet — coming next.</p>
+  {% else %}<p class="muted">None.</p>{% endif %}
+
+  <h2>Unmatched — statement side <span class="badge badge-unmatched">{{ view.unmatched_right|length }}</span></h2>
+  {% if view.unmatched_right %}
+    <table>
+      <thead><tr><th>Statement id</th><th>Instrument</th><th>Side</th></tr></thead>
+      <tbody>
+        {% for txn in view.unmatched_right %}
+        <tr><td>{{ txn.external_id }}</td><td>{{ txn.instrument }}</td><td>{{ txn.side.value }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}<p class="muted">None.</p>{% endif %}
+
+  <h2>Excluded — cancelled <span class="badge badge-cancelled">{{ (view.excluded_cancelled_left|length) + (view.excluded_cancelled_right|length) }}</span></h2>
+  {% if view.excluded_cancelled_left or view.excluded_cancelled_right %}
+    <table>
+      <thead><tr><th>Source</th><th>Id</th><th>Instrument</th><th>Side</th></tr></thead>
+      <tbody>
+        {% for txn in view.excluded_cancelled_left %}
+        <tr><td>ledger</td><td>{{ txn.external_id }}</td><td>{{ txn.instrument }}</td><td>{{ txn.side.value }}</td></tr>
+        {% endfor %}
+        {% for txn in view.excluded_cancelled_right %}
+        <tr><td>statement</td><td>{{ txn.external_id }}</td><td>{{ txn.instrument }}</td><td>{{ txn.side.value }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}<p class="muted">None.</p>{% endif %}
+{% endblock %}

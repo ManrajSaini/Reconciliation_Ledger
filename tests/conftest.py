@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
 
 from reconciliation.adapters import ledger, statement
 from reconciliation.db import metadata
@@ -27,6 +28,38 @@ def db_engine():
     metadata.create_all(engine)
     yield engine
     engine.dispose()
+
+
+@pytest.fixture
+def client():
+    """FastAPI TestClient wired to an isolated in-memory database instead of
+    the real data/reconciliation.db -- importing/exercising the app in tests
+    must never touch the actual application database on disk.
+
+    Uses StaticPool (a single shared connection) rather than the db_engine
+    fixture's plain :memory: engine: TestClient runs the app in a worker
+    thread, and a bare :memory: SQLite connection is thread-local, so a
+    request from that thread can't see this fixture's connection without a
+    shared pool.
+    """
+    from fastapi.testclient import TestClient
+
+    from reconciliation.app import app, get_db_engine
+    from reconciliation.db import metadata
+
+    test_engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    metadata.create_all(test_engine)
+
+    app.dependency_overrides[get_db_engine] = lambda: test_engine
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(get_db_engine, None)
+        test_engine.dispose()
 
 
 @pytest.fixture

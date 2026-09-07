@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ result.left.external_id }} vs {{ result.right.external_id }} — Reconciliation Ledger{% endblock %}
+{% block content %}
+  <nav class="breadcrumb"><a href="/runs/{{ run_id }}">&larr; Run #{{ run_id }}</a></nav>
+  <h1>{{ result.left.external_id }} (ledger) vs {{ result.right.external_id }} (statement)</h1>
+  <p>
+    {% if result.agrees %}
+      <span class="badge badge-agree">Agrees</span>
+    {% else %}
+      <span class="badge badge-differs">Differs</span>
+    {% endif %}
+  </p>
+
+  <table>
+    <thead><tr><th>Field</th><th>Ledger value</th><th>Statement value</th><th>Absolute delta</th><th>Relative delta</th><th>Within tolerance</th></tr></thead>
+    <tbody>
+      {% for diff in result.field_diffs %}
+      <tr class="{{ 'field-ok' if diff.within_tolerance else 'field-bad' }}">
+        <td>{{ diff.field }}</td>
+        <td>{{ diff.left_value|display }}</td>
+        <td>{{ diff.right_value|display }}</td>
+        <td>{{ diff.absolute_delta|display if diff.absolute_delta is not none else "—" }}</td>
+        <td>{{ "%.4f"|format(diff.relative_delta) if diff.relative_delta is not none else "—" }}</td>
+        <td>{{ "yes" if diff.within_tolerance else "NO" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Version history — ledger {{ result.left.external_id }}</h2>
+  <table>
+    <thead><tr><th>Version</th><th>Traded at</th><th>Price</th><th>Quantity</th><th>Gross amount</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for version in left_history %}
+      <tr>
+        <td>{{ version.version_no }}</td>
+        <td>{{ version.traded_at }}</td>
+        <td>{{ version.price|display }}</td>
+        <td>{{ version.quantity|display }}</td>
+        <td>{{ version.gross_amount|display }}</td>
+        <td>{{ version.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Version history — statement {{ result.right.external_id }}</h2>
+  <table>
+    <thead><tr><th>Version</th><th>Traded at</th><th>Price</th><th>Quantity</th><th>Gross amount</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for version in right_history %}
+      <tr>
+        <td>{{ version.version_no }}</td>
+        <td>{{ version.traded_at }}</td>
+        <td>{{ version.price|display }}</td>
+        <td>{{ version.quantity|display }}</td>
+        <td>{{ version.gross_amount|display }}</td>
+        <td>{{ version.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

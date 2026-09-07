@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Runs — Reconciliation Ledger{% endblock %}
+{% block content %}
+  <h1>Reconciliation Ledger</h1>
+  <p class="muted">Upload today's files (either or both) and start a run. Files already ingested are re-matched even with no new upload.</p>
+
+  <form class="upload" method="post" action="/runs" enctype="multipart/form-data">
+    <div><label for="ledger_file">Ledger CSV</label><input type="file" id="ledger_file" name="ledger_file" accept=".csv"></div>
+    <div><label for="statement_file">Statement CSV</label><input type="file" id="statement_file" name="statement_file" accept=".csv"></div>
+    <br>
+    <button type="submit">Start run</button>
+  </form>
+
+  <h2>Past runs</h2>
+  {% if runs %}
+    <table>
+      <thead>
+        <tr>
+          <th>Run</th>
+          <th>Started</th>
+          <th>Status</th>
+          <th>Agree</th>
+          <th>Differs</th>
+          <th>Unmatched (ledger)</th>
+          <th>Unmatched (statement)</th>
+          <th>Cancelled</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in runs %}
+        <tr>
+          <td><a href="/runs/{{ run.id }}">#{{ run.id }}</a></td>
+          <td>{{ run.started_at }}</td>
+          <td>{{ run.status }}</td>
+          <td>{{ run.matched_agree_count if run.matched_agree_count is not none else "—" }}</td>
+          <td>{{ run.matched_differs_count if run.matched_differs_count is not none else "—" }}</td>
+          <td>{{ run.unmatched_left_count if run.unmatched_left_count is not none else "—" }}</td>
+          <td>{{ run.unmatched_right_count if run.unmatched_right_count is not none else "—" }}</td>
+          <td>{{ run.excluded_cancelled_count if run.excluded_cancelled_count is not none else "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No runs yet.</p>
+  {% endif %}
+{% endblock %}

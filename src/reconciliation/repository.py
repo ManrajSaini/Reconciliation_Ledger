@@ -94,6 +94,16 @@ def complete_run(
     conn.commit()
 
 
+def list_runs(conn: Connection) -> list[dict]:
+    rows = conn.execute(select(runs).order_by(runs.c.started_at.desc())).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def get_run(conn: Connection, run_id: int) -> dict | None:
+    row = conn.execute(select(runs).where(runs.c.id == run_id)).mappings().first()
+    return dict(row) if row is not None else None
+
+
 # --- Ingestion & versioning --------------------------------------------
 
 def ingest_file(

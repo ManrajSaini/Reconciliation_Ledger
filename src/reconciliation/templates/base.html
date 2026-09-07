@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Reconciliation Ledger{% endblock %}</title>
+  <style>
+    body { font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+    a { color: #0b5fff; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 1.5rem; }
+    th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; font-size: 0.92rem; }
+    th { background: #f4f4f4; }
+    h1 { font-size: 1.4rem; }
+    h2 { font-size: 1.1rem; margin-top: 2rem; }
+    .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 3px; font-size: 0.8rem; }
+    .badge-agree { background: #e3f6e6; color: #14683a; }
+    .badge-differs { background: #fdecea; color: #a02418; }
+    .badge-unmatched { background: #fff6dc; color: #8a6300; }
+    .badge-cancelled { background: #eee; color: #666; }
+    .field-ok { color: #14683a; }
+    .field-bad { color: #a02418; font-weight: 600; }
+    form.upload { border: 1px solid #ddd; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem; }
+    form.upload label { display: inline-block; width: 140px; }
+    .muted { color: #777; font-size: 0.85rem; }
+    nav.breadcrumb { margin-bottom: 1rem; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  {% block content %}{% endblock %}
+</body>
+</html>
